@@ -269,7 +269,7 @@ export default function AllTrucksPage() {
       {trucks.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
           <p className="text-gray-600 text-lg">No trucks yet</p>
-          <p className="text-gray-500 mt-2">Click "Add Truck" to add vehicles to the system</p>
+          <p className="text-gray-500 mt-2">Click &quot;Add Truck&quot; to add vehicles to the system</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
 interface Company {
@@ -36,7 +36,6 @@ interface Truck {
 
 export default function CompanyManagementPage() {
   const params = useParams()
-  const router = useRouter()
   const companyId = params.id as string
 
   const [company, setCompany] = useState<Company | null>(null)
@@ -61,10 +60,6 @@ export default function CompanyManagementPage() {
     capacity_tons: 10,
     fuel_type: 'diesel',
   })
-
-  useEffect(() => {
-    fetchCompanyData()
-  }, [companyId])
 
   const fetchCompanyData = async () => {
     try {
@@ -97,6 +92,10 @@ export default function CompanyManagementPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchCompanyData()
+  }, [companyId])
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/db'
 import { withAuth } from '@/lib/middleware'
 import Vehicle from '@/models/Vehicle'
-import Company from '@/models/Company'
 
 async function handler(req: NextRequest) {
   const user = (req as any).user

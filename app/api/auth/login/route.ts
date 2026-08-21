@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectToDatabase } from '@/lib/db'
-import { comparePassword, hashPassword } from '@/lib/encryption'
-import { generateTokens, setAuthCookie } from '@/lib/auth'
+import { comparePassword } from '@/lib/encryption'
+import { generateTokens } from '@/lib/auth'
 import { LoginSchema } from '@/lib/validators'
 import User from '@/models/User'
 

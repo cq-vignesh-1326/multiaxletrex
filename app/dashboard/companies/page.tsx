@@ -233,7 +233,7 @@ export default function CompaniesPage() {
       {companies.length === 0 ? (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
           <p className="text-gray-600 text-lg">No companies yet</p>
-          <p className="text-gray-500 mt-2">Click "Create Company" to add a new transport/logistics company</p>
+          <p className="text-gray-500 mt-2">Click &quot;Create Company&quot; to add a new transport/logistics company</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

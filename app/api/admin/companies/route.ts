@@ -3,7 +3,6 @@ import { connectToDatabase } from '@/lib/db'
 import { withAuth } from '@/lib/middleware'
 import { CreateCompanySchema } from '@/lib/validators'
 import Company from '@/models/Company'
-import User from '@/models/User'
 
 async function handler(req: NextRequest) {
   const user = (req as any).user
