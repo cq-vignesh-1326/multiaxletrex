@@ -1,56 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from './auth'
+import { verifyToken, type TokenPayload } from './auth'
 
-export function withAuth(handler: (req: NextRequest, context: any) => Promise<NextResponse>) {
-  return async (req: NextRequest, context: any) => {
-    try {
-      const token = req.cookies.get('authToken')?.value
+export type AuthedHandler<C = unknown> = (req: NextRequest, user: TokenPayload, context: C) => Promise<NextResponse>
 
-      if (!token) {
-        return NextResponse.json(
-          { error: 'Unauthorized - No token' },
-          { status: 401 }
-        )
-      }
-
-      const payload = verifyToken(token)
-      if (!payload) {
-        return NextResponse.json(
-          { error: 'Unauthorized - Invalid token' },
-          { status: 401 }
-        )
-      }
-
-      // Add user to request
-      ;(req as any).user = payload
-
-      return handler(req, context)
-    } catch (error) {
-      console.error('Auth middleware error:', error)
-      return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 }
-      )
+/** Rejects requests without a valid `authToken` cookie and hands the handler the token payload. */
+export function withAuth<C = unknown>(handler: AuthedHandler<C>, opts: { ownerOnly?: boolean } = {}) {
+  return async (req: NextRequest, context: C) => {
+    const token = req.cookies.get('authToken')?.value
+    const user = token ? verifyToken(token) : null
+    if (!user || !user.companyId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-  }
-}
-
-export function withOptionalAuth(handler: (req: NextRequest, context: any) => Promise<NextResponse>) {
-  return async (req: NextRequest, context: any) => {
+    if (opts.ownerOnly && user.role !== 'owner') {
+      return NextResponse.json({ error: 'Only the owner can do this' }, { status: 403 })
+    }
     try {
-      const token = req.cookies.get('authToken')?.value
-
-      if (token) {
-        const payload = verifyToken(token)
-        if (payload) {
-          ;(req as any).user = payload
-        }
-      }
-
-      return handler(req, context)
+      return await handler(req, user, context)
     } catch (error) {
-      console.error('Auth middleware error:', error)
-      return handler(req, context) // Continue even if auth fails
+      console.error(`${req.method} ${req.nextUrl.pathname} failed:`, error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
   }
 }
