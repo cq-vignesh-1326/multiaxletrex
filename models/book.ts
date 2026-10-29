@@ -13,7 +13,7 @@ const owned = {
 }
 
 const paymentSchema = new Schema({ date: S, mode: { type: String, enum: ['account', 'cheque', 'gpay', 'driver'], default: 'account' }, amount: N, note: S }, { _id: false })
-const loadSchema = new Schema({ date: S, from: S, to: S, goods: S, ton: N, rent: N, comm: N, loading: N, unloading: N, payments: [paymentSchema] }, { _id: false })
+const loadSchema = new Schema({ date: S, from: S, to: S, goods: S, ton: N, perTon: N, rent: N, comm: N, loading: N, unloading: N, payments: [paymentSchema] }, { _id: false })
 const lineSchema = new Schema({ date: S, desc: S, amount: N, by: paidBy, litres: N, rate: N }, { _id: false })
 const advanceSchema = new Schema({ date: S, mode: S, amount: N, note: S }, { _id: false })
 

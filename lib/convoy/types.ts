@@ -19,6 +19,8 @@ export interface Load {
   to: string
   goods: string
   ton: Numish
+  /** Rate per ton as typed on the paper sheet; not used in any total. */
+  perTon?: Numish
   rent: Numish
   comm?: Numish
   loading: Numish

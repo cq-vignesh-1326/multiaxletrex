@@ -198,42 +198,52 @@ export function SheetEditor({ id }: { id: string }) {
     const pill = !rent ? null : left <= 0
       ? <span className="pill ok"><B en="Received" ta="வந்தது" /></span>
       : <span className={`pill ${got ? 'info' : 'warn'}`}>{got ? <B en="Part" ta="பகுதி" /> : <B en="Pending" ta="வரவில்லை" />}</span>
-    return { pill, left, rent }
+    return { pill, left, rent, got }
   }
   const loads = (
     <div className="panel">
       <h2><B en="Loads and rent" ta="லோடு / வாடகை" /></h2>
       <div className="tblwrap">
-        <table className="grid-in">
+        <table className="grid-in loads-t">
+          <colgroup>
+            <col className="c-sl" /><col className="c-date" /><col /><col /><col /><col className="c-ton" /><col className="c-pt" />
+            <col className="c-rent" /><col className="c-rcv" /><col className="c-amt" /><col className="c-amt" /><col className="c-amt" /><col className="c-del" />
+          </colgroup>
           <thead><tr>
             <th className="sl">No.<span className="ta">எண்</span></th><th>Date<span className="ta">தேதி</span></th><th>From<span className="ta">புறப்படும் இடம்</span></th>
             <th>To<span className="ta">சேருமிடம்</span></th><th>Goods<span className="ta">லோடு</span></th><th className="num">Ton<span className="ta">டன்</span></th>
-            <th className="num">Rent<span className="ta">வாடகை</span></th><th>Received?<span className="ta">வந்ததா?</span></th><th className="num">Comm.<span className="ta">கமிஷன்</span></th>
+            <th className="num">₹ per ton<span className="ta">டன் விலை</span></th><th className="num">Rent<span className="ta">வாடகை</span></th>
+            <th>Rent received<span className="ta">வந்த வாடகை</span></th><th className="num">Comm.<span className="ta">கமிஷன்</span></th>
             <th className="num">Loading<span className="ta">ஏ.கூலி</span></th><th className="num">Unload<span className="ta">இ.கூலி</span></th><th />
           </tr></thead>
           <tbody>
-            {s.loads.map((l, i) => (
-              <tr key={i} data-row={`loads.${i}`}>
-                <td className="sl">{grip(`loads.${i}`)}{i + 1}.</td>
-                <td style={{ minWidth: 128 }}>{date(`loads.${i}.date`, 'Load date')}</td>
-                <td style={{ minWidth: 110 }}>{inp(`loads.${i}.from`, { ph: T('From', 'இடம்'), al: 'From', sug: 'place' })}</td>
-                <td style={{ minWidth: 110 }}>{inp(`loads.${i}.to`, { ph: T('To', 'சேருமிடம்'), al: 'To', sug: 'place' })}</td>
-                <td style={{ minWidth: 90 }}>{inp(`loads.${i}.goods`, { ph: T('Goods', 'லோடு'), al: 'Goods', sug: 'goods' })}</td>
-                <td style={{ minWidth: 60 }}>{inp(`loads.${i}.ton`, { n: true, al: 'Tons' })}</td>
-                <td style={{ minWidth: 96 }}>{inp(`loads.${i}.rent`, { n: true, al: 'Rent' })}</td>
-                <td style={{ minWidth: 104, padding: '4px 8px' }}>{loadPill(i).pill}</td>
-                <td className="num" style={{ minWidth: 84, padding: '5px 10px' }}>{nf(Math.round((num(l.rent) * r.commPct) / 100))}</td>
-                <td style={{ minWidth: 78 }}>{inp(`loads.${i}.loading`, { n: true, al: 'Loading' })}</td>
-                <td style={{ minWidth: 78 }}>{inp(`loads.${i}.unloading`, { n: true, al: 'Unloading' })}</td>
-                <td>{del(`loads.${i}`, 'Remove load')}</td>
-              </tr>
-            ))}
+            {s.loads.map((l, i) => {
+              const { rent, got } = loadPill(i)
+              return (
+                <tr key={i} data-row={`loads.${i}`}>
+                  <td className="sl">{grip(`loads.${i}`)}{i + 1}.</td>
+                  <td>{date(`loads.${i}.date`, 'Load date')}</td>
+                  <td>{inp(`loads.${i}.from`, { ph: T('From', 'இடம்'), al: 'From', sug: 'place' })}</td>
+                  <td>{inp(`loads.${i}.to`, { ph: T('To', 'சேருமிடம்'), al: 'To', sug: 'place' })}</td>
+                  <td>{inp(`loads.${i}.goods`, { ph: T('Goods', 'லோடு'), al: 'Goods', sug: 'goods' })}</td>
+                  <td>{inp(`loads.${i}.ton`, { n: true, al: 'Tons' })}</td>
+                  <td>{inp(`loads.${i}.perTon`, { n: true, al: 'Rupees per ton' })}</td>
+                  <td>{inp(`loads.${i}.rent`, { n: true, al: 'Rent' })}</td>
+                  <td><RentGot rent={rent} got={got} /></td>
+                  <td className="num">{nf(Math.round((num(l.rent) * r.commPct) / 100))}</td>
+                  <td>{inp(`loads.${i}.loading`, { n: true, al: 'Loading' })}</td>
+                  <td>{inp(`loads.${i}.unloading`, { n: true, al: 'Unloading' })}</td>
+                  <td>{del(`loads.${i}`, 'Remove load')}</td>
+                </tr>
+              )
+            })}
           </tbody>
           <tfoot><tr>
             <td colSpan={5}><B en="Total" ta="மொத்தம்" /></td>
             <td className="num">{r.tons ? r.tons.toFixed(2).replace(/\.00$/, '') + ' T' : ''}</td>
+            <td />
             <td className="num">{nf(r.rent)}</td>
-            <td>{r.pending ? <span className="warn"><B en="Pending" ta="வர வேண்டியது" /> {inr(r.pending)}</span> : r.rent ? <span className="ok"><B en="All received" ta="முழுதும் வந்தது" /></span> : null}</td>
+            <td><RentGot rent={r.rent} got={r.accRecv + r.drvRecv} /></td>
             <td className="num">{nf(r.comm)}</td><td className="num">{nf(r.loading)}</td><td className="num">{nf(r.unloading)}</td><td />
           </tr></tfoot>
         </table>
@@ -420,7 +430,7 @@ export function SheetEditor({ id }: { id: string }) {
     <div className="panel adv">
       <h2><B en="Advance to driver" ta="அட்வான்ஸ் (AD)" /> <span className="meta" id="t-adv">{inr(r.advance)}</span></h2>
       <div className="tblwrap">
-        {s.advances.length > 0 && (
+        {(s.advances.length > 0 || r.drvRecv > 0) && (
           <table className="grid-in">
             <thead><tr>
               <th className="sl">No.<span className="ta">எண்</span></th><th>Date<span className="ta">தேதி</span></th><th>Mode<span className="ta">முறை</span></th>
@@ -446,6 +456,10 @@ export function SheetEditor({ id }: { id: string }) {
                 )
               })}
             </tbody>
+            <tfoot><tr className="drv">
+              <td colSpan={4}><B en="Rent collected by driver (from loads)" ta="டிரைவர் வசூல் வாடகை (லோடு)" /></td>
+              <td className="num">{inr(r.drvRecv)}</td><td />
+            </tr></tfoot>
           </table>
         )}
       </div>
@@ -454,8 +468,8 @@ export function SheetEditor({ id }: { id: string }) {
         <span className="note"><B en="Rent the driver collects is entered in Rent payments and added here by itself" ta="டிரைவர் வசூல் வாடகை, வாடகை வசூல் பகுதியில் போட்டால் இங்கே தானாக சேரும்" /></span>
       </div>
       <div className="ledger">
-        <div className="r sm"><span><B en="GPay / cash advances" ta="ஜிபே / ரொக்கம்" /></span><span className="num">{inr(r.advManual)}</span></div>
-        <div className="r sm"><span><B en="Rent collected by driver (from loads)" ta="டிரைவர் வசூல் வாடகை (லோடு)" /></span><span className="num">{inr(r.drvRecv)}</span></div>
+        <div className="r"><span><B en="GPay / cash advances" ta="ஜிபே / ரொக்கம்" /></span><span className="num">{inr(r.advManual)}</span></div>
+        <div className="r"><span><B en="Rent collected by driver (from loads)" ta="டிரைவர் வசூல் வாடகை (லோடு)" /></span><span className="num">{inr(r.drvRecv)}</span></div>
         <div className="r tot"><span><B en="Total advance" ta="மொத்த அட்வான்ஸ்" /></span><span className="num">{inr(r.advance)}</span></div>
       </div>
     </div>
@@ -605,6 +619,25 @@ export function SheetEditor({ id }: { id: string }) {
         </Drawer>
       )}
     </>
+  )
+}
+
+/** Rent received against rent: green when full, orange when part, red outline when nothing yet. */
+function RentGot({ rent, got }: { rent: number; got: number }) {
+  if (!rent && !got) return null
+  const extra = got - rent
+  const st = got <= 0 ? 'none' : extra >= 0 ? 'full' : 'part'
+  const pctW = rent ? Math.min(100, (got / rent) * 100) : 100
+  return (
+    <div className={`rgot ${st}`}>
+      <span className="num">{inr(got)}</span>
+      <span className="rbar" aria-hidden="true"><i style={{ width: pctW + '%' }} /></span>
+      <span className="rnote">
+        {extra > 0 ? <B en={'+' + inr(extra) + ' extra'} ta="கூடுதல்" />
+          : st === 'full' ? <B en="full" ta="முழுதும்" />
+          : <B en={'due ' + inr(-extra)} ta="பாக்கி" />}
+      </span>
+    </div>
   )
 }
 

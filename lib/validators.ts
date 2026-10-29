@@ -34,7 +34,7 @@ const id = z.string().min(1).max(40)
 
 const PaymentSchema = z.object({ date: str(10), mode: z.enum(['account', 'cheque', 'gpay', 'driver']).catch('account'), amount: numish, note: str() })
 const LoadSchema = z.object({
-  date: str(10), from: str(), to: str(), goods: str(), ton: numish, rent: numish, comm: numish,
+  date: str(10), from: str(), to: str(), goods: str(), ton: numish, perTon: numish, rent: numish, comm: numish,
   loading: numish, unloading: numish, payments: z.array(PaymentSchema).max(100).default([]),
 })
 const LineSchema = z.object({ date: str(10), desc: str(), amount: numish, by: paidBy, litres: numish, rate: numish })

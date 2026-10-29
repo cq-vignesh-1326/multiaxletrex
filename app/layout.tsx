@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next'
-import { IBM_Plex_Mono, Noto_Sans_Tamil, Plus_Jakarta_Sans } from 'next/font/google'
+import { Figtree, IBM_Plex_Mono, Noto_Sans_Tamil, Poppins } from 'next/font/google'
 import './globals.css'
 
-const body = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-body' })
+const body = Figtree({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-body' })
+const display = Poppins({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-display' })
 const mono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-mono' })
 const tamil = Noto_Sans_Tamil({ subsets: ['tamil'], weight: ['400', '500'], variable: '--font-tamil' })
 
@@ -19,7 +20,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${body.variable} ${mono.variable} ${tamil.variable}`}>
+    <html lang="en" className={`${body.variable} ${display.variable} ${mono.variable} ${tamil.variable}`}>
       <body>{children}</body>
     </html>
   )

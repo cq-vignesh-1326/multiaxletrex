@@ -21,11 +21,11 @@ export function Head({ title, sub, children }: { title: React.ReactNode; sub: Re
 }
 
 export function SettleText({ v }: { v: number }) {
-  if (v > 0) return <span className="ok"><B en="Pay driver" ta="டிரைவருக்கு கொடு" /> {inr(v)}</span>
-  if (v < 0) return <span className="warn"><B en="Driver returns" ta="திருப்பி தரணும்" /> {inr(-v)}</span>
-  return <span className="mute"><B en="Even" ta="சரி" /></span>
+  if (v > 0) return <span className="pill ok"><B en="Pay driver" ta="டிரைவருக்கு கொடு" /> {inr(v)}</span>
+  if (v < 0) return <span className="pill warn"><B en="Driver returns" ta="திருப்பி தரணும்" /> {inr(-v)}</span>
+  return <span className="pill mute"><B en="Even" ta="சரி" /></span>
 }
-export const SettledPill = () => <span className="pill mute"><B en="Settled" ta="முடிந்தது" /></span>
+export const SettledPill = () => <span className="pill done"><B en="Settled" ta="முடிந்தது" /></span>
 
 // ---------- month filter shared by overview, sheets and reports ----------
 export function useMonth() {

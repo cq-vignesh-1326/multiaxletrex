@@ -49,7 +49,7 @@ export function blankSheet(): Sheet {
 }
 
 export const blankLoad = () => ({
-  date: '', from: '', to: '', goods: '', ton: '', rent: '', comm: '', loading: '', unloading: '', payments: [],
+  date: '', from: '', to: '', goods: '', ton: '', perTon: '', rent: '', comm: '', loading: '', unloading: '', payments: [],
 })
 
 const pct = (v: unknown, dflt: number) => (v == null || v === '' ? dflt : num(v))
