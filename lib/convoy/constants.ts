@@ -27,6 +27,8 @@ export const ADV_MODES: [string, string][] = [
   ['Cash', 'ரொக்கம்'],
   ['Bank transfer', 'வங்கி'],
   ['Diesel card', 'டீசல் கார்டு'],
+  // balance moved from an earlier sheet at settlement; may be negative
+  ['Carried balance', 'முந்தைய பாக்கி'],
 ]
 
 export const PMODES: [PayMode, string, string][] = [

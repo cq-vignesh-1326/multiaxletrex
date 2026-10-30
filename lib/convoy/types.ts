@@ -68,6 +68,8 @@ export interface Sheet {
   driverExtra: Numish
   advances: Advance[]
   settled: boolean
+  /** id of the sheet this sheet's driver balance was carried to */
+  carriedTo?: string
   created: number
 }
 

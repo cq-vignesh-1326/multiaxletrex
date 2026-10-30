@@ -28,6 +28,7 @@ const sheetSchema = new Schema(
     cleanerBata: N, driverExtra: N,
     advances: [advanceSchema],
     settled: { type: Boolean, default: false },
+    carriedTo: S,
     created: Number,
   },
   { timestamps: true }

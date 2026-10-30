@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { migrate, sampleBook } from '@/lib/convoy/migrate'
 import { useBook } from './BookProvider'
+import { QuickFab } from './QuickEntry'
 import { B, Drawer } from './ui'
 
 const NAV: { href: string; en: string; ta: string }[] = [
@@ -20,6 +21,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const { session } = useBook()
   const [backup, setBackup] = useState(false)
   const active = (href: string) => (href === '/dashboard' ? path === href : path.startsWith(href))
+  const openId = path.match(/^\/dashboard\/sheets\/([^/]+)/)?.[1] || null
+  const showFab = path === '/dashboard' || path.startsWith('/dashboard/sheets')
+  const nav = useRef<HTMLElement>(null)
+
+  // phone tab bar height, so the totals bar, + button and page padding sit above it
+  useEffect(() => {
+    const el = nav.current!
+    const put = () => document.documentElement.style.setProperty('--tabbar-h', getComputedStyle(el).position === 'fixed' ? el.offsetHeight + 'px' : '0px')
+    const ro = new ResizeObserver(put)
+    ro.observe(el)
+    window.addEventListener('resize', put)
+    put()
+    return () => { ro.disconnect(); window.removeEventListener('resize', put) }
+  }, [])
 
   const logout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -28,7 +43,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app">
-      <nav className="rail" aria-label="Books">
+      <nav className="rail" aria-label="Books" ref={nav}>
         <div className="brand"><i /><div>Convoy<small>FLEET ACCOUNTS</small></div></div>
         {NAV.map((n) => (
           <Link key={n.href} href={n.href} className="navbtn" aria-current={active(n.href) ? 'true' : undefined}>
@@ -46,6 +61,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <Banner onRestore={() => setBackup(true)} />
         {children}
       </main>
+      {showFab && <QuickFab key={openId || 'list'} openId={openId} />}
       {backup && <BackupPane onClose={() => setBackup(false)} />}
     </div>
   )

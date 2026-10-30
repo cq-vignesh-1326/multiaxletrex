@@ -22,6 +22,9 @@ interface BookCtx {
   err: string
   monthF: string
   setMonthF: (m: string) => void
+  /** Trip sheets vehicle filter ('' = all). */
+  vehicleF: string
+  setVehicleF: (v: string) => void
   /** Change the book in place; the change is saved online shortly after. */
   mutate: (fn: (b: Book) => void) => void
   /** Replace the whole book (restore / sample / start empty) and mark it started. */
@@ -59,6 +62,7 @@ export function BookProvider({ children }: { children: React.ReactNode }) {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const [monthF, setMonthF] = useState('All')
+  const [vehicleF, setVehicleF] = useState('')
   const [toastMsg, setToastMsg] = useState('')
   const toastT = useRef<ReturnType<typeof setTimeout>>()
 
@@ -198,8 +202,8 @@ export function BookProvider({ children }: { children: React.ReactNode }) {
   }, [dirty, flush])
 
   const value = useMemo<BookCtx | null>(() => session && {
-    book: bookRef.current, version, session, mode, saving, err, monthF, setMonthF, mutate, replaceAll, toast,
-  }, [session, version, mode, saving, err, monthF, mutate, replaceAll, toast])
+    book: bookRef.current, version, session, mode, saving, err, monthF, setMonthF, vehicleF, setVehicleF, mutate, replaceAll, toast,
+  }, [session, version, mode, saving, err, monthF, vehicleF, mutate, replaceAll, toast])
 
   if (!value || mode === 'loading') {
     return <div className="boot-screen"><span className="spinner" aria-hidden="true" />Loading… <span className="ta">ஏற்றுகிறது…</span></div>

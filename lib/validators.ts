@@ -51,6 +51,7 @@ export const SheetDocSchema = z.object({
   cleanerBata: numish, driverExtra: numish,
   advances: z.array(AdvanceSchema).max(200).default([]),
   settled: z.boolean().catch(false),
+  carriedTo: str(40),
   created: z.number().optional(),
 })
 

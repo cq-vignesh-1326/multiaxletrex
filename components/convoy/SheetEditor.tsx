@@ -3,14 +3,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ADV_MODES, CATS, OTHER_CATS, PMODES, type Cat } from '@/lib/convoy/constants'
-import { blankLoad, blankSheet, calc, nextNo, suggestions, summaryText, type SheetCalc } from '@/lib/convoy/calc'
-import { fmtDate, inr, nf, num, T, today } from '@/lib/convoy/format'
+import { blankLoad, calc, monthOf, nextNo, suggestions, summaryText, type SheetCalc } from '@/lib/convoy/calc'
+import { fmtD, fmtDate, inr, nf, num, T, today } from '@/lib/convoy/format'
 import { downloadPdf } from '@/lib/convoy/pdf'
+import { fillFromLast, lastDieselRate, lastSheetOf, nextSheetFor, warnings } from '@/lib/convoy/smart'
 import type { CatKey } from '@/lib/convoy/types'
 import { useBook } from './BookProvider'
 import { DateInput, SuggestInput } from './inputs'
 import { QuickAdd, type QuickKind } from './QuickAdd'
-import { B, Drawer } from './ui'
+import { DriverRows, SettlePane, settleWords } from './Settle'
+import { B, Drawer, Icon, Plate, SecHead } from './ui'
 
 const getPath = (o: any, p: string): any => p.split('.').reduce((a, k) => a?.[k], o)
 function setPath(o: any, p: string, v: unknown) {
@@ -51,6 +53,20 @@ export function SheetEditor({ id }: { id: string }) {
   const [copyText, setCopyText] = useState<string | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
   const [pdfBusy, setPdfBusy] = useState(false)
+  const [settling, setSettling] = useState(false)
+  const bar = useRef<HTMLDivElement>(null)
+
+  // sticky totals bar height (0 when hidden on wide screens) so the + button and page padding clear it
+  useEffect(() => {
+    const el = bar.current
+    if (!el) return
+    const put = () => document.documentElement.style.setProperty('--totbar-h', getComputedStyle(el).display === 'none' ? '0px' : el.offsetHeight + 'px')
+    const ro = new ResizeObserver(put)
+    ro.observe(el)
+    window.addEventListener('resize', put)
+    put()
+    return () => { ro.disconnect(); window.removeEventListener('resize', put); document.documentElement.style.setProperty('--totbar-h', '0px') }
+  }, [id])
 
   useLayoutEffect(() => { if (root.current) labelTables(root.current) })
   useEffect(() => {
@@ -73,7 +89,9 @@ export function SheetEditor({ id }: { id: string }) {
     setPath(s, path, v)
     if (path === 'vehicle') {
       s.no = v ? nextNo(String(v), s.id, book.sheets) : ''
-      if (v) toast('Sheet no. / ஷீட் எண் ' + s.no)
+      const last = v ? lastSheetOf(String(v), s.id, book.sheets) : undefined
+      if (last && fillFromLast(s, last)) toast(`Sheet ${s.no} · filled from the last sheet of this truck / கடைசி ஷீட்டிலிருந்து நிரப்பப்பட்டது`)
+      else if (v) toast('Sheet no. / ஷீட் எண் ' + s.no)
     }
     const m = path.match(/^lines\.diesel\.(\d+)\.(litres|rate)$/)
     if (m) {
@@ -88,6 +106,7 @@ export function SheetEditor({ id }: { id: string }) {
       if (list === 'loads') arr.push(blankLoad())
       else if (/\.payments$/.test(list)) arr.push({ date: today(), mode: 'account', amount: '', note: '' })
       else if (list === 'advances') arr.push({ date: today(), mode: 'GPay', amount: '', note: '' })
+      else if (list === 'lines.diesel') arr.push({ date: today(), desc: '', amount: '', by: 'office', litres: '', rate: lastDieselRate(s.vehicle, book.sheets) })
       else arr.push({ date: '', desc: '', amount: '', by: CATS.find((c) => c.k === k)?.by || 'driver', litres: '', rate: '' })
       focusNext.current = `[data-p^="${list}.${arr.length - 1}."]`
     })
@@ -201,8 +220,8 @@ export function SheetEditor({ id }: { id: string }) {
     return { pill, left, rent, got }
   }
   const loads = (
-    <div className="panel">
-      <h2><B en="Loads and rent" ta="லோடு / வாடகை" /></h2>
+    <div className="panel s-green">
+      <SecHead icon="truck" en="Loads and rent" ta="லோடு / வாடகை" meta={inr(r.rent)} />
       <div className="tblwrap">
         <table className="grid-in loads-t">
           <colgroup>
@@ -263,8 +282,8 @@ export function SheetEditor({ id }: { id: string }) {
 
   // ---------- rent payments ----------
   const payments = (
-    <div className="panel pay">
-      <h2><B en="Rent payments" ta="வாடகை வசூல்" /> <span className="meta">{inr(r.accRecv + r.drvRecv)} / {inr(r.rent)}</span></h2>
+    <div className="panel pay s-dgreen">
+      <SecHead icon="rupee" en="Rent payments" ta="வாடகை வசூல்" meta={<>{inr(r.accRecv + r.drvRecv)} / {inr(r.rent)}</>} />
       {s.loads.length ? s.loads.map((l, i) => {
         const ps = l.payments || []
         const { pill, left, rent } = loadPill(i)
@@ -323,8 +342,8 @@ export function SheetEditor({ id }: { id: string }) {
 
   // ---------- diesel ----------
   const diesel = (
-    <div className="panel">
-      <h2><B en="Diesel" ta="டீசல்" /> <span className="meta">{r.mileage ? r.mileage.toFixed(2) + ' km/L' : ''}</span></h2>
+    <div className="panel s-orange">
+      <SecHead icon="fuel" en="Diesel" ta="டீசல்" meta={<>{inr(r.cat.diesel)}{r.mileage ? ' · ' + r.mileage.toFixed(2) + ' km/L' : ''}</>} />
       <div className="tblwrap">
         <table className="grid-in">
           <thead><tr>
@@ -370,8 +389,8 @@ export function SheetEditor({ id }: { id: string }) {
     const dp = r.catDriver[c.k]
     const op = r.cat[c.k] - dp
     return (
-      <div className="panel" key={c.k}>
-        <h2><B en={c.en} ta={c.ta} /> <span className="meta">{r.cat[c.k] ? inr(r.cat[c.k]) : ''}</span></h2>
+      <div className="panel s-red" key={c.k}>
+        <SecHead icon="receipt" en={c.en} ta={c.ta} meta={r.cat[c.k] ? inr(r.cat[c.k]) : ''} />
         {ls.length > 0 && (
           <div className="lrows grid-in">
             <div className="lr lh"><span className="sl">#</span><span>{pl ? <B en="Location" ta="இடம்" /> : <B en="Details" ta="விவரம்" />}</span><span className="num"><B en="Amount" ta="ரூ." /></span><span><B en="Paid by" ta="யார்" /></span><span /></div>
@@ -412,8 +431,8 @@ export function SheetEditor({ id }: { id: string }) {
 
   // ---------- bata ----------
   const bata = (
-    <div className="panel">
-      <h2><B en="Bata" ta="படி" /></h2>
+    <div className="panel s-purple">
+      <SecHead icon="person" en="Bata" ta="படி" meta={inr(r.bata + r.cleanerBata)} />
       <div className="fixed">
         {F('Driver bata', 'டிரைவர் படி', <>
           <input id="h-bata" className="n" readOnly tabIndex={-1} value={nf(r.bata)} style={{ fontWeight: 600 }} aria-label="Driver bata" />
@@ -427,8 +446,8 @@ export function SheetEditor({ id }: { id: string }) {
 
   // ---------- advances ----------
   const advances = (
-    <div className="panel adv">
-      <h2><B en="Advance to driver" ta="அட்வான்ஸ் (AD)" /> <span className="meta" id="t-adv">{inr(r.advance)}</span></h2>
+    <div className="panel adv s-purple">
+      <SecHead icon="person" en="Advance to driver" ta="அட்வான்ஸ் (AD)" meta={inr(r.advance)} metaId="t-adv" />
       <div className="tblwrap">
         {(s.advances.length > 0 || r.drvRecv > 0) && (
           <table className="grid-in">
@@ -494,11 +513,7 @@ export function SheetEditor({ id }: { id: string }) {
     navigator.clipboard.writeText(text).then(() => toast('Copied / நகலெடுக்கப்பட்டது'), () => setCopyText(text))
   }
   const nextSheet = () => {
-    const c = blankSheet()
-    Object.assign(c, {
-      no: s.vehicle ? nextNo(s.vehicle, null, book.sheets) : '', vehicle: s.vehicle, driver: s.driver, driver2: s.driver2, cleaner: s.cleaner,
-      commPct: s.commPct, bataPct: s.bataPct ?? 10, startKm: s.endKm || '', commBy: s.commBy, loadBy: s.loadBy, unloadBy: s.unloadBy, from: s.to || '',
-    })
+    const c = nextSheetFor(s, book.sheets)
     mutate((b) => { b.sheets.push(c) })
     router.push(`/dashboard/sheets/${c.id}`)
     toast('New sheet for the same vehicle / அதே வண்டிக்கு புதிய ஷீட்')
@@ -559,16 +574,99 @@ export function SheetEditor({ id }: { id: string }) {
     toast('Row moved / வரி மாற்றப்பட்டது')
   }
 
+  // ---------- Enter: apply, flash green, go to the next typing box in the same section ----------
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' || e.defaultPrevented) return
+    const el = e.target as HTMLInputElement
+    if (el.tagName !== 'INPUT' || el.readOnly || el.classList.contains('dt')) return
+    e.preventDefault()
+    el.classList.remove('flash')
+    void el.offsetWidth
+    el.classList.add('flash')
+    setTimeout(() => el.classList.remove('flash'), 700)
+    const box = [...(el.closest('.panel')?.querySelectorAll<HTMLInputElement>('input:not([readonly]):not(.dt)') || [])]
+    const next = box[box.indexOf(el) + 1]
+    if (next) { next.focus(); next.select() } else el.blur()
+  }
+
+  // ---------- empty expense heads fold into one "More expenses" card ----------
+  const shownCats = OTHER_CATS.filter((c) => (s.lines[c.k] || []).length)
+  const emptyCats = OTHER_CATS.filter((c) => !(s.lines[c.k] || []).length)
+  const more = emptyCats.length > 0 && (
+    <div className="panel s-red">
+      <SecHead icon="receipt" en="More expenses" ta="மேலும் செலவு" />
+      <div className="addchips">
+        {emptyCats.map((c) => (
+          <button type="button" key={c.k} className="addchip" onClick={() => addRow(`lines.${c.k}`)}>+ <B en={c.en} ta={c.ta} /></button>
+        ))}
+      </div>
+    </div>
+  )
+
+  // ---------- warnings for this sheet ----------
+  const mine = warnings(book.sheets).filter((w) => w.sheetId === s.id)
+  const check = mine.length > 0 && (
+    <div className="panel s-orange">
+      <SecHead icon="warn" en="Check this sheet" ta="இந்த ஷீட்டை சரிபார்க்கவும்" meta={mine.length} />
+      <ul className="warns">
+        {mine.map((w, i) => (
+          <li key={i} className={w.lvl}><b><B en={w.en} ta={w.ta} /></b><span className="note">{w.detail}</span></li>
+        ))}
+      </ul>
+    </div>
+  )
+
+  // ---------- live tiles under the title ----------
+  const [sEn, sTa] = s.settled ? ['Settled', 'முடிந்தது'] : settleWords(r.settle)
+  const tiles = (
+    <section className="tiles">
+      <div className="tile c-green"><i className="ti"><Icon name="rupee" /></i><div>
+        <span className="lbl"><B en="Rent" ta="வாடகை" /></span><b className="num">{inr(r.rent)}</b>
+        <span className="note">{r.pending ? <span className="warn"><B en={'Due ' + inr(r.pending)} ta="பாக்கி" /></span> : r.rent ? <span className="ok"><B en="All received" ta="முழுதும் வந்தது" /></span> : '—'}</span>
+      </div></div>
+      <div className="tile c-red"><i className="ti"><Icon name="receipt" /></i><div>
+        <span className="lbl"><B en="Expense" ta="செலவு" /></span><b className="num">{inr(r.expense)}</b>
+        <span className="note">{r.rent ? Math.round((r.expense / r.rent) * 100) : 0}% <B en="of rent" ta="வரவில்" /></span>
+      </div></div>
+      <div className="tile c-blue"><i className="ti"><Icon name="calc" /></i><div>
+        <span className="lbl"><B en="Balance" ta="மீதி" /></span><b className={`num ${r.balance < 0 ? 'bad' : ''}`}>{inr(r.balance)}</b>
+        <span className="note">{r.days || '—'} <B en="days" ta="நாள்" /> · {r.km ? nf(r.km) + ' km' : '— km'} · {r.mileage ? r.mileage.toFixed(2) : '—'} km/L</span>
+      </div></div>
+      <div className="tile c-purple"><i className="ti"><Icon name="person" /></i><div>
+        <span className="lbl"><B en={sEn} ta={sTa} /></span><b className="num">{inr(Math.abs(r.settle))}</b>
+        <span className="note">{s.driver || <B en="No driver" ta="டிரைவர் இல்லை" />}</span>
+      </div></div>
+    </section>
+  )
+
+  // ---------- this month's sheets (27-inch screens) ----------
+  const mon = monthOf(s)
+  const monthSheets = book.sheets.filter((x) => monthOf(x) === mon).sort((a, b) => (a.from || '').localeCompare(b.from || '') || (a.no || '').localeCompare(b.no || ''))
+  const side = (
+    <nav className="panel side s-blue" aria-label="This month's trip sheets">
+      <SecHead icon="list" en="This month" ta="இந்த மாதம்" meta={monthSheets.length} />
+      <div className="side-l">
+        {monthSheets.map((x) => (
+          <button type="button" key={x.id} className={x.id === s.id ? 'on' : ''} aria-current={x.id === s.id ? 'true' : undefined} onClick={() => router.push(`/dashboard/sheets/${x.id}`)}>
+            <span className="side-t"><span className="reg">{x.vehicle || '—'}</span><span className="num">{inr(calc(x).balance)}</span></span>
+            <span className="note">{x.no || '—'} · {fmtD(x.from)} – {fmtD(x.to)}</span>
+          </button>
+        ))}
+      </div>
+    </nav>
+  )
+
   return (
     <>
       <header className="top">
         <div>
           <button type="button" className="link" onClick={() => router.push('/dashboard/sheets')}>← <B en="All trip sheets" ta="எல்லா ஷீட்" /></button>
-          <h1 style={{ marginTop: 6 }}>{s.no ? s.no + ' · ' : ''}{s.vehicle || 'New trip sheet / புதிய ஷீட்'}</h1>
+          <h1 className="sheet-h">{s.no && <span>{s.no}</span>}{s.vehicle ? <Plate reg={s.vehicle} /> : <B en="New trip sheet" ta="புதிய ஷீட்" />}</h1>
           <div className="sub"><B en="Every number recalculates as you type and saves automatically." ta="டைப் செய்யும்போதே கணக்கு மாறும், தானாக சேமிக்கப்படும்." /></div>
         </div>
-        <div className="actions">
-          <button type="button" className="btn" disabled={pdfBusy} onClick={pdf}>{pdfBusy ? <B en="Making PDF…" ta="PDF தயாராகிறது…" /> : <B en="Download PDF" ta="PDF பதிவிறக்கு" />}</button>
+        <div className="actions sheet-acts">
+          <button type="button" className="btn settle-b" onClick={() => setSettling(true)}><B en="Settle with driver" ta="டிரைவர் கணக்கு முடி" /></button>
+          <button type="button" className="ghost" disabled={pdfBusy} onClick={pdf}>{pdfBusy ? <B en="Making PDF…" ta="PDF தயாராகிறது…" /> : <B en="Download PDF" ta="PDF பதிவிறக்கு" />}</button>
           <button type="button" className="ghost" onClick={copy}><B en="Copy for WhatsApp" ta="WhatsApp நகல்" /></button>
           <button type="button" className="ghost" onClick={nextSheet}><B en="Next sheet for this vehicle" ta="அடுத்த ஷீட்" /></button>
           {confirmDel ? (
@@ -582,26 +680,41 @@ export function SheetEditor({ id }: { id: string }) {
           )}
         </div>
       </header>
+      {tiles}
       <div
         className="editor"
         ref={root}
+        onKeyDown={onKeyDown}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={(e) => onPointerEnd(e)}
         onPointerCancel={(e) => onPointerEnd(e, true)}
       >
+        {side}
         <div className="col">
-          <div className="panel"><h2><B en="Sheet details" ta="ஷீட் விவரம்" /></h2>{hdr}</div>
+          {check}
+          <div className="panel s-blue"><SecHead icon="clipboard" en="Sheet details" ta="ஷீட் விவரம்" />{hdr}</div>
           {loads}
           {payments}
           {diesel}
-          <div className="cats">{OTHER_CATS.map(catPanel)}</div>
+          <div className="cats">{shownCats.map(catPanel)}{more}</div>
           {bata}
           {advances}
         </div>
-        <aside className="sum"><SumPanel r={r} /></aside>
+        <aside className="sum" id="sum"><SumPanel r={r} /></aside>
       </div>
 
+      <div className="totbar" ref={bar}>
+        <span className="tb-bal"><span className="lbl"><B en="Balance" ta="மீதி" /></span><b className={`num ${r.balance < 0 ? 'bad' : ''}`}>{inr(r.balance)}</b></span>
+        {s.settled ? <span className="pill done"><B en="Settled" ta="முடிந்தது" /></span>
+          : <span className={`pill ${r.settle > 0 ? 'ok' : r.settle < 0 ? 'warn' : 'mute'}`}><B en={sEn} ta={sTa} />{r.settle ? ' ' + inr(Math.abs(r.settle)) : ''}</span>}
+        <span className="tb-acts">
+          <button type="button" className="ghost" onClick={() => document.getElementById('sum')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><B en="Details" ta="விவரம்" /></button>
+          <button type="button" className="btn" onClick={() => setSettling(true)}><B en="Settle" ta="முடி" /></button>
+        </span>
+      </div>
+
+      {settling && <SettlePane s={s} onClose={() => setSettling(false)} onCopy={copy} />}
       {quick && (
         <QuickAdd
           kind={quick.kind}
@@ -653,8 +766,8 @@ function SumPanel({ r }: { r: SheetCalc }) {
   ] as [string, string, number][]).filter((x) => x[2])
   return (
     <>
-      <div className="panel">
-        <h2><B en="Sheet total" ta="மொத்தம்" /></h2>
+      <div className="panel s-blue">
+        <SecHead icon="calc" en="Sheet total" ta="மொத்தம்" />
         <div className="ledger">
           <div className="grp"><B en="Income" ta="வரவு" /></div>
           {row('Total rent', 'மொத்த வாடகை', r.rent, 'tot first')}
@@ -672,15 +785,9 @@ function SumPanel({ r }: { r: SheetCalc }) {
           <div className="r sm"><span><B en="Mileage" ta="மைலேஜ்" /> · {nf(r.litres)} L</span><span className="num">{r.mileage ? r.mileage.toFixed(2) + ' km/L' : '—'}</span></div>
         </div>
       </div>
-      <div className="panel">
-        <h2><B en="Driver account" ta="டிரைவர் கணக்கு" /></h2>
-        <div className="ledger">
-          {r.driverItems.length ? r.driverItems.map((x) => row(x[0], x[1], x[2], 'sm')) : <div className="r sm"><span><B en="Nothing paid by the driver yet" ta="டிரைவர் செலவு இல்லை" /></span></div>}
-          {row('Driver spent', 'டிரைவர் செலவு', r.driverSpent, 'tot')}
-          {row('Less GPay / cash advance', 'அட்வான்ஸ் கழித்து', -r.advManual, 'sm')}
-          {row('Less rent he collected', 'டிரைவர் வசூல் கழித்து', -r.drvRecv, 'sm')}
-          {row('Less advance received', 'மொத்த அட்வான்ஸ் கழித்து', -r.advance, 'advr')}
-        </div>
+      <div className="panel s-purple">
+        <SecHead icon="person" en="Driver account" ta="டிரைவர் கணக்கு" />
+        <div className="ledger"><DriverRows r={r} /></div>
         <div className="verdict">
           <span>{r.settle > 0 ? 'Pay to driver' : r.settle < 0 ? 'Driver returns' : 'Even'}<small className="ta">{r.settle > 0 ? 'டிரைவருக்கு கொடுக்கணும்' : r.settle < 0 ? 'டிரைவர் திருப்பி தரணும்' : 'சரி'}</small></span>
           <span className={`num ${r.settle > 0 ? 'ok' : r.settle < 0 ? 'warn' : ''}`}>{inr(Math.abs(r.settle))}</span>
